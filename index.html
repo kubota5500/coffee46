@@ -56,10 +56,25 @@
   tr.now td { background: var(--now); }
   tr.done td { opacity: .45; }
   .timer { display: flex; align-items: center; gap: 12px; }
-  .timer .clock { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; flex: 1; }
+  .timer .clock { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; flex: 1; }
   .timer button { border: none; border-radius: 12px; padding: 12px 16px; font-size: 16px;
                   background: var(--accent); color: #fff; font-weight: 600; }
   .timer button.ghost { background: var(--line); color: var(--ink); }
+  .bar { position: relative; height: 18px; background: var(--line); border-radius: 9px;
+         margin: 26px 0 6px; overflow: visible; }
+  .bar .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent);
+               border-radius: 9px; transition: width .25s linear; }
+  .bar .mark { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink);
+               opacity: .35; transform: translateX(-1px); }
+  .bar .mark.done { opacity: .8; background: #fff; }
+  .bar .num { position: absolute; top: -22px; font-size: 12px; font-weight: 700;
+              transform: translateX(-50%); color: var(--sub); }
+  .bar .num.cur { color: var(--accent); }
+  .ticks { position: relative; height: 16px; font-size: 11px; color: var(--sub);
+           font-variant-numeric: tabular-nums; }
+  .ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+  .ticks span:first-child { transform: none; }
+  .ticks span:last-child { transform: translateX(-100%); }
   .next { font-size: 14px; color: var(--sub); margin-top: 6px; min-height: 1.2em; }
   .note { font-size: 12px; color: var(--sub); line-height: 1.6; }
   .note li { margin-bottom: 4px; }
@@ -119,6 +134,8 @@
       <button id="start">スタート</button>
       <button id="reset" class="ghost">リセット</button>
     </div>
+    <div class="bar" id="bar"><div class="fill" id="fill"></div></div>
+    <div class="ticks" id="ticks"></div>
     <div class="next" id="next"></div>
   </div>
 
@@ -179,11 +196,23 @@ function render() {
     `<td>${p.g} g</td><td>${p.cum} g</td></tr>`);
   rows.push(`<tr data-t="${END}"><td class="time">${fmt(END)}</td><td colspan="2">ドリッパーを外す</td></tr>`);
   $('tbody').innerHTML = rows.join('');
+  renderBar(pours);
   for (const [id, key] of [['taste', 'taste'], ['strength', 'strength'], ['roast', 'roast']]) {
     $(id).querySelectorAll('button').forEach((b) =>
       b.classList.toggle('on', String(state[key]) === b.dataset.v));
   }
   highlight();
+}
+
+function renderBar(pours) {
+  const pct = (t) => (t / END * 100) + '%';
+  const marks = pours.map((p, i) =>
+    `<div class="mark" data-t="${p.t}" style="left:${pct(p.t)}"></div>` +
+    `<div class="num" data-t="${p.t}" style="left:${pct(p.t + (((pours[i + 1] || {}).t ?? END) - p.t) / 2)}">${i + 1}</div>`);
+  marks.push(`<div class="mark" data-t="${END}" style="left:${pct(END)}"></div>`);
+  $('bar').innerHTML = '<div class="fill" id="fill"></div>' + marks.join('');
+  $('ticks').innerHTML = [...pours.map((p) => p.t), END]
+    .map((t) => `<span style="left:${pct(t)}">${fmt(t)}</span>`).join('');
 }
 
 function bindSeg(id, key, num) {
@@ -214,7 +243,14 @@ function beep() {
 }
 function highlight() {
   const s = Math.floor(now());
-  $('clock').textContent = fmt(s);
+  $('clock').innerHTML = fmt(s) + '<small style="font-size:18px;color:var(--sub);font-weight:500"> / ' + fmt(END) + '</small>';
+  $('fill').style.width = Math.min(100, now() / END * 100) + '%';
+  const nums = [...$('bar').querySelectorAll('.num')];
+  let ci = -1;
+  nums.forEach((n, i) => { if (s >= Number(n.dataset.t)) ci = i; });
+  nums.forEach((n, i) => n.classList.toggle('cur', s < END && i === ci && (startAt !== null || elapsed > 0)));
+  $('bar').querySelectorAll('.mark').forEach((m) =>
+    m.classList.toggle('done', now() >= Number(m.dataset.t) && Number(m.dataset.t) > 0));
   const trs = [...$('tbody').querySelectorAll('tr')];
   let cur = -1;
   trs.forEach((tr, i) => { if (s >= Number(tr.dataset.t)) cur = i; });
