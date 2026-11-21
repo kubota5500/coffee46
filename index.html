@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="4:6 Brew">
+<meta name="theme-color" content="#2b1d14">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.json">
+<title>4:6 Brew</title>
+<style>
+  :root {
+    --bg: #f7f3ee; --card: #fff; --ink: #2b1d14; --sub: #8a7a6d;
+    --accent: #b5652b; --line: #e8e0d6; --now: #fbe7d3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #17110d; --card: #241b15; --ink: #f3ebe3; --sub: #a8988a;
+            --accent: #e08a4a; --line: #3a2e25; --now: #4a2f1c; }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
+    padding: calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 24px);
+    max-width: 560px; margin-inline: auto;
+  }
+  h1 { font-size: 22px; margin: 4px 0 2px; }
+  .lead { color: var(--sub); font-size: 13px; margin: 0 0 14px; }
+  .card { background: var(--card); border-radius: 16px; padding: 14px 16px; margin-bottom: 12px;
+          box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .label { font-size: 13px; color: var(--sub); margin-bottom: 8px; }
+  .dose { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .dose button { width: 52px; height: 52px; border-radius: 50%; border: none; font-size: 28px;
+                 background: var(--accent); color: #fff; }
+  .dose .val { font-size: 44px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .dose .val small { font-size: 18px; font-weight: 500; color: var(--sub); }
+  input[type=range] { width: 100%; margin-top: 10px; accent-color: var(--accent); }
+  .seg { display: flex; background: var(--line); border-radius: 10px; padding: 3px; }
+  .seg button { flex: 1; border: none; background: transparent; color: var(--ink);
+                padding: 8px 4px; border-radius: 8px; font-size: 14px; }
+  .seg button.on { background: var(--card); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+  .row { margin-top: 12px; }
+  .summary { display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; gap: 6px; }
+  .summary b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .summary span { font-size: 12px; color: var(--sub); }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th { font-size: 12px; color: var(--sub); font-weight: 500; text-align: right; padding: 6px 4px;
+       border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  td { padding: 11px 4px; text-align: right; border-bottom: 1px solid var(--line); font-size: 17px; }
+  td.time { font-weight: 700; }
+  td .tag { font-size: 11px; color: var(--sub); margin-left: 4px; }
+  tr.now td { background: var(--now); }
+  tr.done td { opacity: .45; }
+  .timer { display: flex; align-items: center; gap: 12px; }
+  .timer .clock { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; flex: 1; }
+  .timer button { border: none; border-radius: 12px; padding: 12px 16px; font-size: 16px;
+                  background: var(--accent); color: #fff; font-weight: 600; }
+  .timer button.ghost { background: var(--line); color: var(--ink); }
+  .next { font-size: 14px; color: var(--sub); margin-top: 6px; min-height: 1.2em; }
+  .note { font-size: 12px; color: var(--sub); line-height: 1.6; }
+  .note li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+  <h1>4:6 Brew</h1>
+  <p class="lead">粕谷哲「4:6メソッド」レシピ計算（粉量 × 15 = 湯量）</p>
+
+  <div class="card">
+    <div class="label">豆の量</div>
+    <div class="dose">
+      <button id="minus" aria-label="減らす">−</button>
+      <div class="val"><span id="doseVal">20</span><small> g</small></div>
+      <button id="plus" aria-label="増やす">＋</button>
+    </div>
+    <input id="dose" type="range" min="10" max="40" step="1" value="20">
+  </div>
+
+  <div class="card">
+    <div class="label">味（前半40%の配分）</div>
+    <div class="seg" id="taste">
+      <button data-v="sweet">甘く</button>
+      <button data-v="std" class="on">標準</button>
+      <button data-v="bright">明るく</button>
+    </div>
+    <div class="row label">濃さ（後半60%の注湯回数）</div>
+    <div class="seg" id="strength">
+      <button data-v="1">薄く 1回</button>
+      <button data-v="2">濃く 2回</button>
+      <button data-v="3" class="on">より濃く 3回</button>
+    </div>
+    <div class="row label">焙煎度（湯温の目安）</div>
+    <div class="seg" id="roast">
+      <button data-v="93" class="on">浅煎り</button>
+      <button data-v="88">中煎り</button>
+      <button data-v="83">深煎り</button>
+    </div>
+  </div>
+
+  <div class="card summary">
+    <div><b id="sumWater">300g</b><span>総湯量</span></div>
+    <div><b id="sumTemp">93℃</b><span>湯温</span></div>
+    <div><b>3:30</b><span>ドリッパーを外す</span></div>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>時間</th><th>注ぐ量</th><th>累計（スケール表示）</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="timer">
+      <div class="clock" id="clock">0:00</div>
+      <button id="start">スタート</button>
+      <button id="reset" class="ghost">リセット</button>
+    </div>
+    <div class="next" id="next"></div>
+  </div>
+
+  <div class="card note">
+    <ul>
+      <li>挽き目は中粗挽き〜粗挽き。濃くしたければ細く、薄くしたければ粗く。</li>
+      <li>注いだお湯がほとんど落ち切ってから次を注ぐ。3:30 で落ち切るよう挽き目を調整。</li>
+      <li>軟水（硬度50以下）推奨。沸騰直後のお湯は避ける。</li>
+      <li>深煎りは濃く出やすいので、後半2回・湯量少なめもおすすめ。</li>
+      <li>出典: PHILOCOFFEA「ベーシックな淹れ方」（20g・5投の例）。他の粉量・注湯回数の時間配分はこのアプリでの推定です。</li>
+    </ul>
+  </div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const state = JSON.parse(localStorage.getItem('b46') || 'null') ||
+  { dose: 20, taste: 'std', strength: 3, roast: 93 };
+
+// 公式例(20g): 0:00, 0:45, 1:30, 2:10, 2:40, 外す 3:30
+const LATER_TIMES = { 1: [90], 2: [90, 130], 3: [90, 130, 160] };
+const END = 210;
+
+function fmt(s) { return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+
+function recipe() {
+  const total = state.dose * 15;
+  const first = Math.round(total * 0.4);
+  const second = total - first;
+  // 甘く: 1投目 < 2投目, 明るく: 1投目 > 2投目 (20g 例で 50/70)
+  const r = { sweet: 5 / 12, std: 0.5, bright: 7 / 12 }[state.taste];
+  const p1 = Math.round(first * r);
+  const pours = [
+    { t: 0, g: p1, tag: '40%' },
+    { t: 45, g: first - p1, tag: '40%' },
+  ];
+  const n = state.strength;
+  const times = LATER_TIMES[n];
+  let rest = second;
+  for (let i = 0; i < n; i++) {
+    const g = i === n - 1 ? rest : Math.round(second / n);
+    rest -= g;
+    pours.push({ t: times[i], g, tag: '60%' });
+  }
+  let cum = 0;
+  pours.forEach((p) => { cum += p.g; p.cum = cum; });
+  return { total, pours };
+}
+
+function render() {
+  localStorage.setItem('b46', JSON.stringify(state));
+  $('doseVal').textContent = state.dose;
+  $('dose').value = state.dose;
+  const { total, pours } = recipe();
+  $('sumWater').textContent = total + 'g';
+  $('sumTemp').textContent = state.roast + '℃';
+  const rows = pours.map((p, i) =>
+    `<tr data-t="${p.t}"><td class="time">${fmt(p.t)}<span class="tag">${i + 1}投目</span></td>` +
+    `<td>${p.g} g</td><td>${p.cum} g</td></tr>`);
+  rows.push(`<tr data-t="${END}"><td class="time">${fmt(END)}</td><td colspan="2">ドリッパーを外す</td></tr>`);
+  $('tbody').innerHTML = rows.join('');
+  for (const [id, key] of [['taste', 'taste'], ['strength', 'strength'], ['roast', 'roast']]) {
+    $(id).querySelectorAll('button').forEach((b) =>
+      b.classList.toggle('on', String(state[key]) === b.dataset.v));
+  }
+  highlight();
+}
+
+function bindSeg(id, key, num) {
+  $(id).addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    state[key] = num ? Number(b.dataset.v) : b.dataset.v; render();
+  });
+}
+bindSeg('taste', 'taste', false);
+bindSeg('strength', 'strength', true);
+bindSeg('roast', 'roast', true);
+const setDose = (v) => { state.dose = Math.min(40, Math.max(10, v)); render(); };
+$('dose').addEventListener('input', (e) => setDose(Number(e.target.value)));
+$('minus').onclick = () => setDose(state.dose - 1);
+$('plus').onclick = () => setDose(state.dose + 1);
+
+// タイマー
+let startAt = null, elapsed = 0, tick = null, lastStep = -1;
+function now() { return startAt ? elapsed + (Date.now() - startAt) / 1000 : elapsed; }
+function beep() {
+  try {
+    const ctx = beep.ctx || (beep.ctx = new (window.AudioContext || window.webkitAudioContext)());
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = 880; g.gain.value = 0.2;
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.25);
+  } catch (_) {}
+  if (navigator.vibrate) navigator.vibrate(200);
+}
+function highlight() {
+  const s = Math.floor(now());
+  $('clock').textContent = fmt(s);
+  const trs = [...$('tbody').querySelectorAll('tr')];
+  let cur = -1;
+  trs.forEach((tr, i) => { if (s >= Number(tr.dataset.t)) cur = i; });
+  const running = startAt !== null || elapsed > 0;
+  trs.forEach((tr, i) => {
+    tr.classList.toggle('now', running && i === cur);
+    tr.classList.toggle('done', running && i < cur);
+  });
+  if (running && cur !== lastStep) { if (lastStep !== -1 || cur === 0) beep(); lastStep = cur; }
+  const nxt = trs[cur + 1];
+  if (running && nxt) {
+    const cells = nxt.querySelectorAll('td');
+    const what = cells.length === 3 ? `${cells[1].textContent}注ぐ → 累計 ${cells[2].textContent}` : 'ドリッパーを外す';
+    $('next').textContent = `次 ${fmt(Number(nxt.dataset.t))}（あと ${Number(nxt.dataset.t) - s} 秒）: ${what}`;
+  } else {
+    $('next').textContent = running ? '完成！' : '';
+  }
+  if (s >= END + 5 && startAt) { pause(); }
+}
+function pause() { elapsed = now(); startAt = null; clearInterval(tick); $('start').textContent = '再開'; }
+$('start').onclick = () => {
+  if (startAt) { pause(); return; }
+  beep.ctx || beep(); // iOS: ユーザー操作で音声を有効化
+  startAt = Date.now(); $('start').textContent = '一時停止';
+  tick = setInterval(highlight, 250); highlight();
+};
+$('reset').onclick = () => {
+  clearInterval(tick); startAt = null; elapsed = 0; lastStep = -1;
+  $('start').textContent = 'スタート'; highlight();
+};
+
+render();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
